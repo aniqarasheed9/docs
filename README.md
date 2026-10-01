@@ -1,140 +1,261 @@
-# The Talent Accelerator — Architecture at a Glance
+# The Talent Accelerator — Architecture Diagrams
 
-> **Who this is for:** anyone who wants to understand how the product fits together —
-> no coding background needed. Every diagram below is a picture first, with a short
-> plain-language explanation underneath it.
->
-> **What this is not:** this is not the detailed engineering documentation (that lives
-> in the private docs site and is aimed at developers). This is the "explain it on a
-> whiteboard" version — one level up, so anyone can see the shape of the system.
+One connected drill-down: the 5 apps → the modules inside each app → the actual
+fields in each module and how they connect to each other.
+
+> Starting with **TOM** (the largest app) end-to-end as the template. The same
+> drill-down will be added for JE, LBT, Dashboard, and SSO next.
 
 ---
 
-## 1. The big picture
-
-The product is **one backend** (the database and business rules) serving **five separate
-front-end applications** (the screens people actually click on). Think of the backend as
-a kitchen, and the five apps as five different ordering counters that all cook from the
-same kitchen.
+## Level 1 — The 5 apps
 
 ```mermaid
 flowchart TB
-    subgraph Users["👤 People using the product"]
-        U1[Company admins]
-        U2[HR / Compensation teams]
-        U3[Internal TOM staff]
-    end
+    SSO[🔑 SSO<br/>Login & company setup]
+    TOM[💰 TOM<br/>Pay data & offers]
+    JE[📋 JE<br/>Job evaluation]
+    LBT[📊 LBT<br/>Pay benchmarking]
+    DASH[📈 Dashboard<br/>Analytics]
 
-    subgraph Apps["Five front-end apps (what people see in the browser)"]
-        SSO[🔑 SSO<br/>Login & company setup]
-        TOM[💰 TOM<br/>Pay data & offers]
-        JE[📋 JE<br/>Job evaluation]
-        LBT[📊 LBT<br/>Pay benchmarking]
-        DASH[📈 Dashboard<br/>Analytics]
-    end
+    SSO -.shared login.-> TOM
+    SSO -.shared login.-> JE
+    SSO -.shared login.-> LBT
+    SSO -.shared login.-> DASH
 
-    BACKEND[🗄️ One shared backend<br/>stores data & runs the business rules]
-    DB[(Database)]
-    AI[🤖 AI helpers<br/>insights & suggestions]
-
-    Users --> Apps
-    SSO -.writes a shared login.-> TOM
-    SSO -.writes a shared login.-> JE
-    SSO -.writes a shared login.-> LBT
-    SSO -.writes a shared login.-> DASH
-
-    SSO --> BACKEND
-    TOM --> BACKEND
-    JE --> BACKEND
-    LBT --> BACKEND
-    DASH --> BACKEND
-
-    BACKEND --> DB
-    BACKEND --> AI
+    TOM -->|grade + offer data| LBT
+    TOM -->|grade + offer data| DASH
+    JE -->|evaluated grade| TOM
+    TOM -->|pay ranges, grades| JE
 ```
 
-**In plain words:**
-- A person logs in **once**, through the **SSO app**. That login is then recognized by
-  all the other four apps automatically — no separate password for each one.
-- Every app talks to the **same backend**, so data entered in one place (e.g. a pay
-  range set up in TOM) is instantly available everywhere else that needs it (e.g. when
-  benchmarking in LBT).
-- The backend is the only thing that touches the database. Apps never read the database
-  directly — they always ask the backend for data.
-
 ---
 
-## 2. The five front-end apps
-
-| App | What it's for, in one line | Diagram |
-|---|---|---|
-| 🔑 **SSO** | The front door — login, and setting up companies/users | [frontend/sso.md](frontend/sso.md) |
-| 💰 **TOM** | Managing pay data and building job offers | [frontend/tom.md](frontend/tom.md) |
-| 📋 **JE** | Scoring a job's seniority/complexity to decide its grade | [frontend/job-evaluation.md](frontend/job-evaluation.md) |
-| 📊 **LBT** | Comparing a company's pay against the market | [frontend/benchmarking.md](frontend/benchmarking.md) |
-| 📈 **Dashboard** | Charts and trends built from all the above data | [frontend/dashboard.md](frontend/dashboard.md) |
-
----
-
-## 3. The backend modules
-
-The backend is organized into ~20 building blocks ("modules"). Each one owns one piece
-of the puzzle. They're grouped below by what they're responsible for.
-
-| Group | Modules | Diagram |
-|---|---|---|
-| 🔑 **Identity & company setup** | Authentication, Company setup, Admin users, App entitlements | [backend/identity-and-setup.md](backend/identity-and-setup.md) |
-| 💰 **Compensation data & offers** | Compensation reference data, Offer modelling, Custom jobs | [backend/compensation-and-offers.md](backend/compensation-and-offers.md) |
-| 📋 **Job evaluation & grading** | Job evaluation, Job grades, Grade normalization | [backend/job-evaluation-and-grading.md](backend/job-evaluation-and-grading.md) |
-| 📊 **Benchmarking & data import** | Live Pay Benchmarking, CSV upload/import | [backend/benchmarking-and-import.md](backend/benchmarking-and-import.md) |
-| 🤖 **AI & dashboards** | AI insights, AI offer analysis, Dashboard aggregation | [backend/ai-and-dashboards.md](backend/ai-and-dashboards.md) |
-| 🧱 **Shared foundations** | Shared services, response format, error handling, file storage | [backend/shared-foundations.md](backend/shared-foundations.md) |
-
----
-
-## 4. How a typical action flows through the system
-
-Example: **a user views a benchmarking report.**
+## Level 2 — TOM's modules
 
 ```mermaid
-sequenceDiagram
-    participant Person as 👤 Person (browser)
-    participant App as 📊 LBT app
-    participant Backend as 🗄️ Backend
-    participant DB as Database
+flowchart TB
+    subgraph TOM["💰 TOM"]
+        GRADE[Grade Setup]
+        SALARY[Salary Range]
+        CASH[Cash Allowances]
+        STI[Short-Term Incentive]
+        LTI[Long-Term Incentive]
+        BENEFITS[Benefit Plans]
+        PAYROLL[Internal Payroll Data]
+        MARKET[Market Data]
+        JOBFUNC[Job Function Setup]
+        OFFERS[Offers]
+    end
 
-    Person->>App: Clicks "Generate Report"
-    App->>Backend: Sends the request (who, what, which filters)
-    Backend->>Backend: Checks: is this person allowed to see this?
-    Backend->>DB: Pulls the matching pay data
-    DB-->>Backend: Returns the data
-    Backend->>Backend: Crunches the numbers (percentiles, averages)
-    Backend-->>App: Sends back the finished report
-    App-->>Person: Shows the report on screen
+    GRADE --> SALARY
+    GRADE --> CASH
+    GRADE --> STI
+    GRADE --> LTI
+    GRADE --> BENEFITS
+    JOBFUNC --> CASH
+    JOBFUNC --> STI
+    JOBFUNC --> LTI
+    JOBFUNC --> BENEFITS
+
+    SALARY --> OFFERS
+    CASH --> OFFERS
+    STI --> OFFERS
+    LTI --> OFFERS
+    BENEFITS --> OFFERS
+    GRADE --> OFFERS
+    PAYROLL -.market comparison.-> OFFERS
+    MARKET -.market comparison.-> OFFERS
 ```
 
-Every action in every app follows this same shape: **app asks → backend checks
-permission → backend fetches/calculates → app displays the result.**
+**In plain words:** Grade Setup and Job Function Setup are the foundation — nearly
+every other module scopes its data to a grade and/or a job function. Offers is where
+everything comes together: when someone builds an offer, it pulls from Salary Range,
+Cash Allowances, STI, LTI, and Benefit Plans to calculate the full package.
 
 ---
 
-## 5. Legend used across all diagrams
+## Level 3 — Field-level breakdown of each TOM module
 
-| Symbol | Meaning |
+Each module below follows the same pattern: a **Version** (a published batch of
+data) holds many **rows**, and some rows have **scoping** — which grade / country /
+job function they apply to.
+
+### Grade Setup
+
+```mermaid
+flowchart LR
+    V[Grade Version<br/>one published set per company] --> G["Grade<br/>grade code, type,<br/>is global?"]
+    G --> C[Grade ↔ Country<br/>which countries<br/>this grade applies in]
+```
+
+| Field | Meaning |
 |---|---|
-| 🔑 | Login / security related |
-| 💰 | Pay / money related |
-| 📋 | Job evaluation related |
-| 📊 | Benchmarking / reporting |
-| 📈 | Analytics / dashboards |
-| 🤖 | AI-powered feature |
-| 🗄️ | Backend / server |
-| 🧱 | Shared / foundational piece used by many modules |
-| Solid arrow `-->` | Direct, synchronous call ("ask and wait for the answer") |
-| Dotted arrow `-.->` | Indirect relationship (e.g. shared login, shared data) |
+| `grade` | The grade code/name (e.g. "M3") |
+| `type` | Grade type/band label |
+| `is_global` | Applies company-wide, or only in specific countries |
 
 ---
 
-*This documentation is intentionally high-level and non-technical. For developer-level
-detail (API endpoints, database fields, code structure), see the engineering
-documentation site.*
+### Salary Range
+
+```mermaid
+flowchart LR
+    GRADE2[Grade] --> SR["Salary Range<br/>country, city, tier, year,<br/>min / mid / max"]
+```
+
+| Field | Meaning |
+|---|---|
+| `grade` | Which grade this range is for |
+| `country`, `city` | Where this range applies |
+| `salary_min` / `salary_mid` / `salary_max` | The low / middle / high of the pay band |
+
+---
+
+### Cash Allowances
+
+```mermaid
+flowchart LR
+    GRADE3[Grade] --> CA["Cash Allowance<br/>name, value,<br/>is percentage?"]
+    JF1[Job Function] --> CA
+    SF1[Sub-Function] --> CA
+```
+
+| Field | Meaning |
+|---|---|
+| `allowance_name` | Name of the allowance (e.g. "Housing") |
+| `value` | The amount, or the percentage |
+| `is_percentage` | Is `value` a % (of basic pay) or a flat amount |
+| `is_all_grade` | Applies to every grade, or just the scoped one |
+
+---
+
+### Short-Term Incentive (STI) — the annual bonus
+
+```mermaid
+flowchart LR
+    PLAN[STI Plan<br/>name, type] --> STIVAL["STI Value<br/>value, is percentage?,<br/>is basic pay?"]
+    GRADE4[Grade] --> STIVAL
+    JF2[Job Function] --> STIVAL
+```
+
+| Field | Meaning |
+|---|---|
+| `plan` | Which bonus plan this value belongs to |
+| `value` | The bonus target amount or percentage |
+| `is_percentage` | Is `value` a % of base pay |
+| `is_basic_pay` | Calculated from basic pay specifically |
+
+---
+
+### Long-Term Incentive (LTI) — equity
+
+```mermaid
+flowchart LR
+    PLAN2["LTI Plan<br/>name, installment type,<br/>grant value basis"] --> LTIVAL["LTI Value<br/>equity min / mid / max,<br/>currency"]
+    GRADE5[Grade] --> LTIVAL
+```
+
+| Field | Meaning |
+|---|---|
+| `installment_type` | How the grant pays out: Monthly / Quarterly / Semi-Annually / Annually |
+| `grant_value` | Whether the grant is valued in cash ("Value") or share count ("Unit") |
+| `equity_min` / `equity_mid` / `equity_max` | The equity grant range |
+| `currency` | Currency the grant is valued in |
+
+---
+
+### Benefit Plans
+
+```mermaid
+flowchart LR
+    BP["Benefit Plan<br/>name, category,<br/>calculation basis, value"]
+    GRADE6[Grade] --> BP
+    JF3[Job Function] --> BP
+    EMP[Employee Type] --> BP
+```
+
+| Field | Meaning |
+|---|---|
+| `category` | Statutory / Wellness / Health / Retirement / Financial / Lifestyle / etc. |
+| `calculation_basis` | How the value is worked out — % of Basic, % of Guaranteed Cash, Flat Amount, etc. |
+| `benefit_value_or_cte` | The benefit's value or cost-to-employer |
+| `exclude_from_offer` | Hide this benefit when building an offer |
+
+---
+
+### Internal Payroll Data
+
+```mermaid
+flowchart LR
+    PR["Payroll Record<br/>one row per employee<br/>base pay, bonus, total cash"]
+    PR --> ALLOW["Custom allowance columns<br/>(company-defined, varies by upload)"]
+```
+
+| Field | Meaning |
+|---|---|
+| `annual_base_pay` | The employee's actual base salary |
+| `total_guaranteed_cash` | Base + fixed allowances |
+| `total_actual_cash` | Everything actually paid, including bonus |
+| Custom allowance columns | Each payroll upload can define its own extra pay columns |
+
+---
+
+### Market Data
+
+```mermaid
+flowchart LR
+    MD["Market Data Row<br/>one row per survey data point<br/>percentile pay figures"]
+```
+
+| Field | Meaning |
+|---|---|
+| `survey_company_name` | Which market survey this data came from |
+| `annual_base_pay_p25/p50/p75` | Base pay at the 25th / 50th / 75th percentile |
+| `target_total_rem_p25/p50/p75` | Total remuneration at those same percentiles |
+
+---
+
+### Offers — where everything comes together
+
+```mermaid
+flowchart TB
+    OFFER["Offer<br/>status: Drafted → Placed → Accepted/Rejected"]
+    POS["Position Details<br/>grade, job function, country"]
+    CAND["Candidate Details<br/>name, current pay, experience"]
+    FC["Fixed Cash<br/>base salary, compa-ratio"]
+    STIB["STI<br/>bonus target & amount"]
+    LTIB["LTI<br/>equity grant"]
+    SIGNON["Sign-On Bonus"]
+    BEN["Benefits<br/>+ total remuneration"]
+
+    OFFER --> POS
+    OFFER --> CAND
+    OFFER --> FC
+    OFFER --> STIB
+    OFFER --> LTIB
+    OFFER --> SIGNON
+    OFFER --> BEN
+
+    GRADE7[Grade Setup] -.scopes.-> POS
+    JF4[Job Function Setup] -.scopes.-> POS
+```
+
+| Field | Meaning |
+|---|---|
+| `status` | Drafted → Placed → Accepted / Rejected (or Edited, if revised) |
+| `original_offer` | If this offer is a revision, links back to the original |
+| `offer_fixed_cash.proposed_compa_ratio` | How the offered base compares to the salary range midpoint |
+
+**Important connection detail:** when an offer is built, the Fixed Cash / STI / LTI /
+Benefits numbers are **copied into the offer** at the time it's built — they don't
+stay live-linked to Salary Range, Cash Allowances, STI, LTI, or Benefit Plans
+afterward. Only **Position Details** keeps a live link back to Grade Setup and Job
+Function Setup. So if a salary range changes later, offers already built don't
+silently change — but the offer does flag if the reference data has changed since
+it was built (a "data may be stale" check).
+
+---
+
+*Diagrams for JE, LBT, Dashboard, and SSO follow the same structure and are being
+added next.*
